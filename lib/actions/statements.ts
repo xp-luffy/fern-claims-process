@@ -3,59 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { errorMessage, logAudit, safeReturnPath, textValue, withMessage } from "@/lib/actions/shared";
-import { numberValue } from "@/lib/actions/shared";
-
-function parseCsvLine(line: string) {
-  const values: string[] = [];
-  let value = "";
-  let quoted = false;
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-    if (character === '"' && line[index + 1] === '"' && quoted) {
-      value += '"';
-      index += 1;
-    } else if (character === '"') {
-      quoted = !quoted;
-    } else if (character === "," && !quoted) {
-      values.push(value.trim());
-      value = "";
-    } else {
-      value += character;
-    }
-  }
-  values.push(value.trim());
-  return values;
-}
-
-function parseStatementCsv(csv: string, companyId: string) {
-  const lines = csv.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  if (lines.length < 2) throw new Error("CSV must include a header row and at least one transaction");
-  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase().replaceAll(" ", "_"));
-  const find = (...names: string[]) => names.map((name) => headers.indexOf(name)).find((index) => index >= 0) ?? -1;
-  const merchantIndex = find("merchant", "vendor", "description");
-  const amountIndex = find("amount", "total");
-  const dateIndex = find("transaction_date", "date", "posted_date");
-  const currencyIndex = find("currency");
-  if (merchantIndex < 0 || amountIndex < 0 || dateIndex < 0) {
-    throw new Error("CSV headers must include merchant, amount, and date");
-  }
-
-  return lines.slice(1).map((line, rowIndex) => {
-    const values = parseCsvLine(line);
-    const amount = Number(values[amountIndex]?.replace(/[$,]/g, ""));
-    const rawDate = values[dateIndex];
-    const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : new Date(rawDate).toISOString().slice(0, 10);
-    if (!values[merchantIndex] || !Number.isFinite(amount) || !parsedDate) throw new Error(`Invalid data on CSV row ${rowIndex + 2}`);
-    return {
-      company_id: companyId,
-      merchant: values[merchantIndex],
-      amount: Math.abs(Math.round(amount * 100) / 100),
-      currency: (currencyIndex >= 0 ? values[currencyIndex] : "USD").toUpperCase() || "USD",
-      transaction_date: parsedDate,
-    };
-  });
-}
+import { errorMessage, logAudit, numberValue, safeReturnPath, textValue, withMessage } from "@/lib/actions/shared";
+import { parseStatementCsv, parseStatementPdf, type StatementDateFormat } from "@/lib/statements/parse";
 
 export async function importStatementAction(formData: FormData) {
   const returnTo = safeReturnPath(formData, "/statements");
@@ -63,10 +12,35 @@ export async function importStatementAction(formData: FormData) {
   try {
     const companyId = textValue(formData, "company_id");
     const file = formData.get("statement_file");
-    let csv = textValue(formData, "csv", false);
-    if (file instanceof File && file.size > 0) csv = await file.text();
-    if (!csv) throw new Error("Paste CSV rows or choose a CSV file");
-    const rows = parseStatementCsv(csv, companyId);
+    const defaultCurrency = (textValue(formData, "default_currency", false) || "USD").toUpperCase();
+    const dateFormatValue = textValue(formData, "date_format", false) || "auto";
+    if (!["auto", "mdy", "dmy"].includes(dateFormatValue)) throw new Error("Unsupported statement date format");
+    const dateFormat = dateFormatValue as StatementDateFormat;
+    const statementYearValue = textValue(formData, "statement_year", false);
+    const statementYear = statementYearValue ? Number(statementYearValue) : undefined;
+    if (statementYear && (statementYear < 2000 || statementYear > 2100)) throw new Error("Statement year is invalid");
+
+    let source = "pasted CSV";
+    let pageCount: number | undefined;
+    let parsedRows;
+    if (file instanceof File && file.size > 0) {
+      if (file.size > 10 * 1024 * 1024) throw new Error("Statement files are limited to 10 MB");
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      if (isPdf) {
+        const parsed = await parseStatementPdf(new Uint8Array(await file.arrayBuffer()), { dateFormat, defaultCurrency, statementYear });
+        parsedRows = parsed.rows;
+        pageCount = parsed.pageCount;
+        source = file.name || "PDF statement";
+      } else {
+        parsedRows = parseStatementCsv(await file.text(), defaultCurrency);
+        source = file.name || "CSV statement";
+      }
+    } else {
+      const csv = textValue(formData, "csv", false);
+      if (!csv) throw new Error("Choose a PDF/CSV statement or paste CSV rows");
+      parsedRows = parseStatementCsv(csv, defaultCurrency);
+    }
+    const rows = parsedRows.map((row) => ({ company_id: companyId, ...row }));
     const supabase = await createClient();
     const { data, error } = await supabase.from("statement_items").insert(rows).select();
     if (error) throw error;
@@ -75,13 +49,17 @@ export async function importStatementAction(formData: FormData) {
         action: "statement.imported",
         entityType: "statement_item",
         entityId: data[0].id,
-        after: { imported_count: data.length, company_id: companyId },
+        after: { imported_count: data.length, company_id: companyId, source, page_count: pageCount ?? null },
       });
     }
     revalidatePath("/");
     revalidatePath("/statements");
     revalidatePath("/claims");
-    destination = withMessage(returnTo, "notice", `${rows.length} statement item${rows.length === 1 ? "" : "s"} imported.`);
+    destination = withMessage(
+      returnTo,
+      "notice",
+      `${rows.length} statement item${rows.length === 1 ? "" : "s"} imported from ${source}${pageCount ? ` (${pageCount} page${pageCount === 1 ? "" : "s"})` : ""}. Review the extracted rows before matching.`,
+    );
   } catch (error) {
     destination = withMessage(returnTo, "error", errorMessage(error));
   }

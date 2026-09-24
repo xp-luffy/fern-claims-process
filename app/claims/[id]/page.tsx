@@ -87,11 +87,14 @@ export default async function ClaimDetailPage({ params, searchParams }: {
         </section>
 
         <section className="panel">
-          <div className="panel-heading"><div className="section-title"><span className="section-number">2</span><div><h2>Import card statement</h2><p>Paste a CSV or choose a file. Headers: merchant, amount, date, currency.</p></div></div></div>
+          <div className="panel-heading"><div className="section-title"><span className="section-number">2</span><div><h2>Import card statement</h2><p>Upload a digital PDF or CSV. Transactions are extracted for review before matching; scanned PDFs need OCR.</p></div></div></div>
           <form action={importStatementAction} className="form-grid">
             <input type="hidden" name="company_id" value={claim.company_id} /><input type="hidden" name="returnTo" value={returnTo} />
-            <div className="form-field"><label htmlFor="statement-file">CSV file</label><input id="statement-file" className="input" type="file" name="statement_file" accept=".csv,text/csv" /></div>
-            <div className="form-field"><span className="field-label">Expected format</span><pre className="csv-example">merchant,amount,date,currency{"\n"}Microsoft,320.00,2024-10-03,USD</pre></div>
+            <div className="form-field full"><label htmlFor="statement-file">PDF or CSV statement</label><input id="statement-file" className="input" type="file" name="statement_file" accept=".pdf,application/pdf,.csv,text/csv" /><small className="help-text">10 MB max · up to 30 PDF pages</small></div>
+            <div className="form-field"><label htmlFor="statement-year">Statement year</label><input id="statement-year" className="input" type="number" name="statement_year" min="2000" max="2100" defaultValue={claim.period_month.slice(0, 4)} /></div>
+            <div className="form-field"><label htmlFor="date-format">Date order</label><select id="date-format" className="select" name="date_format" defaultValue="auto"><option value="auto">Auto-detect</option><option value="dmy">Day / month / year</option><option value="mdy">Month / day / year</option></select></div>
+            <div className="form-field"><label htmlFor="statement-currency">Default currency</label><input id="statement-currency" className="input" name="default_currency" defaultValue="USD" pattern="[A-Za-z]{3}" /></div>
+            <div className="form-field"><span className="field-label">CSV fallback</span><pre className="csv-example">merchant,amount,date,currency{"\n"}Microsoft,320.00,2024-10-03,USD</pre></div>
             <div className="form-field full"><label htmlFor="csv">Or paste CSV</label><textarea id="csv" className="textarea" name="csv" placeholder="merchant,amount,date,currency" /></div>
             <div className="form-actions"><button className="button primary" type="submit">Import statement items</button></div>
           </form>

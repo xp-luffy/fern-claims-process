@@ -15,19 +15,25 @@ A Director's PA spends hours each month hunting invoices across multiple email a
 - **Claim** — a monthly claim bundle: company + period + linked invoices + status (draft → submitted → approved).
 - **ExpenditureSummary** — auto-generated executive summary per claim (totals by category, variances, notes).
 
-## MVP (v1) — checklist
-- [ ] Multi-company setup with invoice categorisation.
-- [ ] Upload / link invoices (file attach, manual entry, email-forward ingest stub).
-- [ ] Import CC statement items (CSV paste/upload) and match against invoices.
-- [ ] Create a monthly claim, attach invoices, see live totals.
-- [ ] One-click executive expenditure summary (rule-based v1).
-- [ ] Export claim pack (PDF/CSV).
+## Delivered workflow
+- [x] Multi-company setup with invoice categorisation.
+- [x] Upload / link invoices (file attach and manual entry).
+- [x] Import CC statement items (digital PDF or CSV) and match against invoices.
+- [x] Create a monthly claim, attach invoices, see live totals.
+- [x] One-click executive expenditure summary (rule-based v1).
+- [x] Export claim pack (PDF/CSV).
 
-## Non-goals (v1)
+## Required acquisition automation
+- Connect a Gmail or Outlook mailbox with user-granted read access.
+- Find invoice emails and PDF attachments for the selected claim period.
+- Download attachments and supported secure invoice links into the claim review queue.
+- Track missing vendors and platform-only invoices as acquisition tasks, with a source-specific connector for each supported billing platform.
+- Never claim an invoice was collected until the file is stored and its extracted fields are ready for review.
+
+## Remaining non-goals
 - No mobile app.
-- No live email inbox integration (manual forward / upload only).
 - No multi-tenant auth / login wall (demo-first, open reads/writes).
 - No automated payment or bank API.
 
 ## Success Criteria
-**One concrete scenario:** The PA creates an October claim for "Fern Holdings," uploads 6 invoices across software/ads/office categories, pastes the CC statement, matches all 6 invoices to statement items, generates the executive summary showing totals by category and any unmatched charges, and exports the claim pack — all without leaving the app, in under 10 minutes.
+**One concrete scenario:** The PA creates an October claim for "Fern Holdings," asks Fern to collect invoice attachments from the connected mailbox and supported billing platforms, uploads the CC statement PDF, reviews the extracted invoices and charges, matches all 6 invoices, generates the executive summary showing totals by category and any unmatched charges, and exports the claim pack. The PA should not download email invoices one by one.
