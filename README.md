@@ -37,6 +37,7 @@ Open [http://localhost:3000](http://localhost:3000). The migration in `supabase/
 ## Verification
 
 ```bash
+bun run test
 bun run typecheck
 bun run build
 ```
