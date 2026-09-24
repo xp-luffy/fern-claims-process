@@ -1,41 +1,44 @@
-# vibe-stack-supabase
+# Fern Claims Process
 
-Next.js 15 + Supabase starter for shipping vibe-coded apps fast. Clone, provision, build.
+Fern turns monthly expense evidence into an auditable intercompany claim. A user can maintain companies, capture or upload invoices, import statement transactions, review deterministic match suggestions, resolve exceptions, generate the expenditure summary, export the evidence pack, and submit the claim.
+
+## Core workflow
+
+1. Create a claim for a company and accounting period.
+2. Add invoices manually or upload supporting PDF/image files.
+3. Import statement rows as CSV (`date,description,amount`).
+4. Auto-confirm high-confidence matches, review suggestions, and resolve exceptions manually.
+5. Generate the expenditure summary, export CSV/PDF, and submit the claim.
+
+Every material mutation writes an audit-log entry. Uploaded files live in the private Supabase `invoices` bucket and are served through short-lived signed links.
 
 ## Stack
 
 | Layer | Choice |
 |---|---|
-| Framework | Next.js 15 (App Router, React 19, Server Actions) |
-| Language | TypeScript strict |
-| Styles | Tailwind CSS v4 (CSS-first, no config file) |
-| Auth + DB | Supabase (`@supabase/ssr`) |
+| App | Next.js 15 App Router, React 19, TypeScript |
+| Data and files | Supabase Postgres, Row Level Security, Storage |
+| Styling | Tailwind CSS v4 |
+| PDF export | `pdf-lib` |
 | Package manager | Bun |
-| Deploy | Vercel |
+| Deployment | Vercel, deployed from `main` |
 
-## Quick start
+## Local setup
 
 ```bash
 bun install
-cp .env.example .env.local   # fill in your Supabase keys
-bun dev
+vercel env pull .env.local
+bun x supabase db push
+bun run dev
 ```
 
-Open http://localhost:3000. Edit `app/page.tsx` to start building.
+Open [http://localhost:3000](http://localhost:3000). The migration in `supabase/migrations` creates the database, storage policies, and starter claim data.
 
-## Provisioning a new project
+## Verification
 
-Use the `/new-vibe-project <name>` skill (see `claude-dotfiles` repo) which:
-1. Clones this template and renames it
-2. Creates a new GitHub repo and pushes
-3. Creates a Supabase project and injects URL + anon key
-4. Creates a Vercel project linked to the GitHub repo
-5. Triggers first deploy and returns the preview URL
+```bash
+bun run typecheck
+bun run build
+```
 
-## Working with AI
-
-See [CLAUDE.md](CLAUDE.md) for conventions. This repo is pre-wired for gstack — start with `/office-hours`.
-
-## Switching to Neon
-
-If you need Postgres without Supabase (e.g. prefer Drizzle ORM + Clerk for auth), a `vibe-stack-neon` variant is planned. For now: fork this and swap `@supabase/ssr` for `drizzle-orm` + `@neondatabase/serverless`, add Clerk or NextAuth.
+The production build performs its own TypeScript validation. Do not commit `.env.local` or Supabase credentials.
