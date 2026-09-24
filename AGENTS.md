@@ -13,3 +13,4 @@
 ## Notes
 
 - Sprint 1 focused on building an end-to-end claims workflow.
+- Sprint 2 deliverables: harden production build and operations.
